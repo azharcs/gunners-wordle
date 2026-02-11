@@ -6,6 +6,8 @@
   <title>Gunners Wordle - The Arsenal Word Game</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <style>
     :root {
       /* Arsenal Official Colors */
@@ -363,24 +365,6 @@
     }
     .puzzle-card.failed::before { background: var(--arsenal-red); opacity: 0.5; }
     .puzzle-card.failed .pstatus { color: var(--arsenal-red); }
-
-    /* Import Banner */
-    .import-banner {
-      display: none;
-      background: linear-gradient(135deg, rgba(212,175,55,0.08), rgba(212,175,55,0.02));
-      border: 1px solid rgba(212,175,55,0.3);
-      border-radius: 12px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      text-align: center;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .import-banner.show { display: block; }
-    .import-banner p { font-size: 0.85rem; color: var(--text-mid); margin-bottom: 0.6rem; }
-    .import-banner strong { color: var(--arsenal-gold); }
 
     /* ═══════════════════════════════════════════
        GAME SCREEN
@@ -818,6 +802,58 @@
       cursor: pointer;
     }
 
+    /* Live Badge */
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--arsenal-red);
+      background: rgba(239, 1, 7, 0.1);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--arsenal-red);
+      border-radius: 50%;
+      animation: livePulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .lb-loading {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    .lb-loading .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--arsenal-red);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 0.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -871,12 +907,6 @@
       <div class="stat-box streak"><span class="stat-val" id="homeStreak">0</span><span class="stat-label">Best Streak</span></div>
     </div>
 
-    <div class="import-banner" id="importBanner">
-      <p>A fellow Gooner sent you scores!</p>
-      <button class="lb-btn primary" onclick="acceptImport()">Add to Leaderboard</button>
-      <button class="lb-btn secondary" onclick="dismissImport()" style="margin-left:0.3rem">Dismiss</button>
-    </div>
-
     <div class="section-header">
       <div class="line"></div>
       <span class="label">Current Squad</span>
@@ -928,12 +958,15 @@
   </div>
   <div class="lb-content">
     <div class="lb-header">
-      <h2 id="lbTitle">Puzzle #1</h2>
+      <h2 id="lbTitle">Puzzle #1 <span class="live-badge"><span class="live-dot"></span>Live</span></h2>
       <p id="lbSubtitle"></p>
     </div>
     <div class="lb-actions">
-      <button class="lb-btn primary" onclick="shareLb()">Share Scores</button>
-      <button class="lb-btn secondary" onclick="copyLbLink()">Copy Link</button>
+      <button class="lb-btn primary" onclick="shareLbResult()">Share Result</button>
+    </div>
+    <div class="lb-loading" id="lbLoading" style="display:none">
+      <div class="spinner"></div>
+      <div>Loading scores...</div>
     </div>
     <table class="lb-table" id="lbTable">
       <thead>
@@ -1006,6 +1039,22 @@
 </div>
 
 <script>
+// ═══════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyAxgWyD5wolNBAZX5dpdKFiCdg3GlKEoX0",
+  authDomain: "gunners-wordle.firebaseapp.com",
+  projectId: "gunners-wordle",
+  storageBucket: "gunners-wordle.firebasestorage.app",
+  messagingSenderId: "226970694700",
+  appId: "1:226970694700:web:92eed9e1f155d337f0cd89",
+  measurementId: "G-GQZ3F8DK4R"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.enablePersistence().catch(() => {});
+
 // ═══════════════════════════════════════════
 // PUZZLE DATA — 75 Arsenal surnames
 // ═══════════════════════════════════════════
@@ -1112,7 +1161,7 @@ let gameOver = false;
 let revealedHint = false;
 let resultEmoji = [];
 let lbViewPuzzle = null;
-let pendingImport = null;
+let lbUnsubscribe = null; // Firestore real-time listener cleanup
 
 function loadState() {
   playerName = localStorage.getItem(STORAGE.name) || '';
@@ -1135,12 +1184,14 @@ function showScreen(id) {
 }
 
 function goHome() {
+  detachLbListener();
   document.getElementById('endModal').classList.remove('show');
   showScreen('homeScreen');
   renderHome();
 }
 
 function goBackFromLb() {
+  detachLbListener();
   if (currentPuzzle && !gameOver) {
     showScreen('gameScreen');
   } else {
@@ -1461,6 +1512,7 @@ function endGame(won) {
 // LEADERBOARD
 // ═══════════════════════════════════════════
 function addToLeaderboard(puzzleNum, name, score, grid) {
+  // Local cache
   if (!leaderboards[puzzleNum]) leaderboards[puzzleNum] = [];
   const lb = leaderboards[puzzleNum];
   const idx = lb.findIndex(e => e.name.toLowerCase() === name.toLowerCase());
@@ -1468,29 +1520,91 @@ function addToLeaderboard(puzzleNum, name, score, grid) {
   lb.push({ name, score, grid });
   lb.sort((a, b) => { const sa = a.score === 'X' ? 99 : a.score; const sb = b.score === 'X' ? 99 : b.score; return sa - sb; });
   saveState();
+
+  // Firestore write
+  const docId = `${puzzleNum}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  const firestoreScore = score === 'X' ? 7 : score;
+  db.collection('scores').doc(docId).set({
+    puzzleNum: puzzleNum,
+    name: name,
+    nameLower: name.toLowerCase(),
+    score: firestoreScore,
+    grid: grid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(err => console.warn('Firestore write failed:', err));
+}
+
+function detachLbListener() {
+  if (lbUnsubscribe) { lbUnsubscribe(); lbUnsubscribe = null; }
 }
 
 function showLeaderboard(puzzleNum) {
+  detachLbListener();
+
   const pNum = puzzleNum || lbViewPuzzle || (currentPuzzle ? currentPuzzle.num : 1);
   lbViewPuzzle = pNum;
   const puzzle = PUZZLES.find(p => p.num === pNum);
-  document.getElementById('lbTitle').textContent = `Puzzle #${pNum}`;
+  document.getElementById('lbTitle').innerHTML = `Puzzle #${pNum} <span class="live-badge"><span class="live-dot"></span>Live</span>`;
   const saved = savedPuzzles[pNum];
   document.getElementById('lbSubtitle').textContent = saved
     ? `Answer: ${puzzle.answer}` : `${puzzle.answer.length} letters — ${puzzle.hint}`;
 
-  const lb = leaderboards[pNum] || [];
+  // Show loading, hide table initially
+  document.getElementById('lbLoading').style.display = 'block';
+  document.getElementById('lbTable').style.display = 'none';
+  document.getElementById('lbEmpty').style.display = 'none';
+
+  // First render from local cache immediately
+  renderLeaderboardTable(leaderboards[pNum] || []);
+
+  // Attach real-time Firestore listener
+  lbUnsubscribe = db.collection('scores')
+    .where('puzzleNum', '==', pNum)
+    .orderBy('score')
+    .orderBy('createdAt')
+    .onSnapshot(snapshot => {
+      const entries = [];
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        entries.push({
+          name: d.name,
+          score: d.score >= 7 ? 'X' : d.score,
+          grid: d.grid || ''
+        });
+      });
+
+      // Update local cache
+      leaderboards[pNum] = entries;
+      saveState();
+
+      // Render
+      document.getElementById('lbLoading').style.display = 'none';
+      renderLeaderboardTable(entries);
+    }, err => {
+      console.warn('Firestore listener error:', err);
+      // Fallback to local data
+      document.getElementById('lbLoading').style.display = 'none';
+      renderLeaderboardTable(leaderboards[pNum] || []);
+    });
+
+  document.getElementById('endModal').classList.remove('show');
+  showScreen('lbScreen');
+}
+
+function renderLeaderboardTable(entries) {
   const tbody = document.getElementById('lbBody');
   const emptyEl = document.getElementById('lbEmpty');
+  const table = document.getElementById('lbTable');
   tbody.innerHTML = '';
 
-  if (lb.length === 0) {
+  if (entries.length === 0) {
     emptyEl.style.display = 'block';
-    document.getElementById('lbTable').querySelector('thead').style.display = 'none';
+    table.style.display = 'none';
   } else {
     emptyEl.style.display = 'none';
-    document.getElementById('lbTable').querySelector('thead').style.display = '';
-    lb.forEach((entry, i) => {
+    table.style.display = '';
+    table.querySelector('thead').style.display = '';
+    entries.forEach((entry, i) => {
       const tr = document.createElement('tr');
       if (entry.name.toLowerCase() === playerName.toLowerCase()) tr.classList.add('lb-me');
       const scoreClass = entry.score === 1 ? 'score-1' : entry.score === 2 ? 'score-2' : entry.score === 'X' ? 'score-x' : '';
@@ -1504,78 +1618,37 @@ function showLeaderboard(puzzleNum) {
       tbody.appendChild(tr);
     });
   }
-
-  document.getElementById('endModal').classList.remove('show');
-  showScreen('lbScreen');
 }
 
 // Share
-function buildShareUrl(puzzleNum) {
-  const lb = leaderboards[puzzleNum] || [];
-  if (lb.length === 0) return null;
-  const payload = { p: puzzleNum, e: lb };
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  return window.location.origin + window.location.pathname + '#lb=' + encoded;
-}
+function shareLbResult() {
+  if (!lbViewPuzzle) return;
+  const saved = savedPuzzles[lbViewPuzzle];
+  const puzzle = PUZZLES.find(p => p.num === lbViewPuzzle);
+  const gameUrl = 'https://azharcs.github.io/gunners-wordle/';
 
-function shareLb() {
-  const url = buildShareUrl(lbViewPuzzle);
-  if (!url) { showToast('No scores to share'); return; }
-  if (navigator.share) {
-    navigator.share({ title: `Gunners Wordle — Puzzle #${lbViewPuzzle}`, text: `Challenge me on Gunners Wordle Puzzle #${lbViewPuzzle}! COYG!`, url }).catch(() => {});
+  let text;
+  if (saved) {
+    text = `Gunners Wordle 🔴⚪ #${lbViewPuzzle}\n${puzzle.answer.length} letters — ${saved.score}/${MAX_GUESSES}\n\n${saved.emoji}\n\n${gameUrl}\nCOYG!`;
   } else {
-    copyToClipboard(url);
-    showToast('Share link copied!');
+    text = `Can you beat me on Gunners Wordle Puzzle #${lbViewPuzzle}?\n\n${gameUrl}\nCOYG!`;
   }
-}
 
-function copyLbLink() {
-  const url = buildShareUrl(lbViewPuzzle);
-  if (!url) { showToast('No scores to share'); return; }
-  copyToClipboard(url);
-  showToast('Link copied!');
+  if (navigator.share) {
+    navigator.share({ title: `Gunners Wordle — Puzzle #${lbViewPuzzle}`, text }).catch(() => {});
+  } else {
+    copyToClipboard(text);
+    showToast('Copied! Share with your mates!');
+  }
 }
 
 function copyResult() {
   if (!currentPuzzle) return;
   const score = savedPuzzles[currentPuzzle.num]?.score || 'X';
-  const text = `Gunners Wordle 🔴⚪ #${currentPuzzle.num}\n${currentPuzzle.answer.length} letters — ${score}/${MAX_GUESSES}\n\n${resultEmoji.join('\n')}\n\nCOYG!`;
+  const gameUrl = 'https://azharcs.github.io/gunners-wordle/';
+  const text = `Gunners Wordle 🔴⚪ #${currentPuzzle.num}\n${currentPuzzle.answer.length} letters — ${score}/${MAX_GUESSES}\n\n${resultEmoji.join('\n')}\n\n${gameUrl}\nCOYG!`;
   copyToClipboard(text);
   showToast('Copied! Share with your mates!');
-}
-
-// Import
-function checkUrlImport() {
-  const hash = window.location.hash;
-  if (!hash.startsWith('#lb=')) return;
-  try {
-    const json = decodeURIComponent(escape(atob(hash.substring(4))));
-    const data = JSON.parse(json);
-    if (data.p && data.e && Array.isArray(data.e)) {
-      pendingImport = data;
-      const banner = document.getElementById('importBanner');
-      banner.querySelector('p').innerHTML =
-        `A fellow Gooner sent <strong>${data.e.length}</strong> score(s) for <strong>Puzzle #${data.p}</strong>!`;
-      banner.classList.add('show');
-    }
-  } catch(e) { console.warn('Invalid share URL'); }
-  history.replaceState(null, '', window.location.pathname);
-}
-
-function acceptImport() {
-  if (!pendingImport) return;
-  const { p, e } = pendingImport;
-  e.forEach(entry => { addToLeaderboard(p, entry.name, entry.score, entry.grid); });
-  saveState();
-  document.getElementById('importBanner').classList.remove('show');
-  pendingImport = null;
-  showToast(`${e.length} score(s) added! COYG!`);
-  renderHome();
-}
-
-function dismissImport() {
-  document.getElementById('importBanner').classList.remove('show');
-  pendingImport = null;
 }
 
 // ═══════════════════════════════════════════
@@ -1623,7 +1696,6 @@ function fallbackCopy(text) {
 // INIT
 // ═══════════════════════════════════════════
 loadState();
-checkUrlImport();
 renderHome();
 
 // Show how-to on first visit

@@ -1001,7 +1001,8 @@
     <div class="modal-btns">
       <button class="modal-btn gray" onclick="copyResult()">Copy Result</button>
       <button class="modal-btn gold" onclick="showLeaderboard()">Leaderboard</button>
-      <button class="modal-btn red" onclick="goHome()">Home</button>
+      <button class="modal-btn red" id="nextPuzzleBtn" onclick="nextPuzzle()">Next Puzzle ➜</button>
+      <button class="modal-btn gray" onclick="goHome()" style="font-size:0.75rem">Home</button>
     </div>
   </div>
 </div>
@@ -1514,7 +1515,42 @@ function endGame(won) {
   }
   document.getElementById('endAnswer').textContent = currentPuzzle.answer;
   document.getElementById('endGrid').textContent = resultEmoji.join('\n');
+
+  // Show/hide Next Puzzle button
+  const nextBtn = document.getElementById('nextPuzzleBtn');
+  const nextP = getNextPuzzle();
+  if (nextP) {
+    nextBtn.style.display = '';
+    nextBtn.textContent = `Next: #${nextP.num} ➜`;
+  } else {
+    nextBtn.style.display = 'none';
+  }
+
   setTimeout(() => { document.getElementById('endModal').classList.add('show'); }, 400);
+}
+
+function getNextPuzzle() {
+  if (!currentPuzzle) return null;
+  const currentIdx = PUZZLES.findIndex(p => p.num === currentPuzzle.num);
+  // Look for the next unplayed puzzle after the current one
+  for (let i = currentIdx + 1; i < PUZZLES.length; i++) {
+    if (!savedPuzzles[PUZZLES[i].num]) return PUZZLES[i];
+  }
+  // Wrap around: look from the beginning
+  for (let i = 0; i < currentIdx; i++) {
+    if (!savedPuzzles[PUZZLES[i].num]) return PUZZLES[i];
+  }
+  return null; // All puzzles completed!
+}
+
+function nextPuzzle() {
+  const next = getNextPuzzle();
+  if (next) {
+    document.getElementById('endModal').classList.remove('show');
+    startPuzzle(next);
+  } else {
+    alert('You\'ve completed all puzzles! What a Gooner! 🏆');
+  }
 }
 
 // ═══════════════════════════════════════════

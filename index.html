@@ -128,6 +128,19 @@
     .topbar-btn:active { background: rgba(255,255,255,0.12); transform: scale(0.96); }
     .topbar-actions { display: flex; gap: 0.5rem; }
 
+    .hint-btn {
+      background: rgba(212, 175, 55, 0.15);
+      border: 1px solid rgba(212, 175, 55, 0.4);
+      color: var(--arsenal-gold);
+      font-weight: 600;
+    }
+    .hint-btn:active { background: rgba(212, 175, 55, 0.25); }
+    .hint-btn.used {
+      opacity: 0.35;
+      pointer-events: none;
+      text-decoration: line-through;
+    }
+
     /* ═══════════════════════════════════════════
        CANNON SVG (inline)
        ═══════════════════════════════════════════ */
@@ -442,6 +455,22 @@
     .tile.correct { background: var(--correct); border-color: var(--correct); color: #fff; }
     .tile.present { background: var(--present); border-color: var(--present); color: #fff; }
     .tile.absent { background: var(--absent); border-color: var(--absent); color: #999; }
+    .tile.hint-locked {
+      background: rgba(255,255,255,0.03);
+      border-color: rgba(255,255,255,0.06);
+      position: relative;
+    }
+    .tile.hint-locked::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 10%;
+      right: 10%;
+      height: 2px;
+      background: var(--arsenal-red);
+      opacity: 0.5;
+      transform: translateY(-50%);
+    }
 
     @keyframes pop { 50% { transform: scale(1.08); } }
     @keyframes flip {
@@ -935,6 +964,7 @@
       Puzzle #1
     </div>
     <div class="topbar-actions">
+      <button class="topbar-btn hint-btn" id="hintBtn" onclick="useHint()">💡 Hint</button>
       <button class="topbar-btn" onclick="showLeaderboard()">&#127942;</button>
     </div>
   </div>
@@ -1184,6 +1214,7 @@ let currentGuess = '';
 let currentRow = 0;
 let gameOver = false;
 let revealedHint = false;
+let hintUsed = false;
 let resultEmoji = [];
 let lbViewPuzzle = null;
 let lbUnsubscribe = null; // Firestore real-time listener cleanup
@@ -1325,7 +1356,13 @@ function startPuzzle(puzzle) {
   currentRow = 0;
   gameOver = false;
   revealedHint = false;
+  hintUsed = false;
   resultEmoji = [];
+
+  // Reset hint button
+  const hintBtn = document.getElementById('hintBtn');
+  hintBtn.classList.remove('used');
+  hintBtn.textContent = '💡 Hint';
 
   const titleEl = document.getElementById('gameTopTitle');
   titleEl.innerHTML = `<svg class="cannon"><use href="#cannonIcon"/></svg> Puzzle #${puzzle.num}`;
@@ -1408,6 +1445,39 @@ function updateKeyColor(letter, state) {
   }
 }
 
+// Hint — costs 1 row, reveals first letter
+function useHint() {
+  if (gameOver || hintUsed) return;
+  hintUsed = true;
+
+  const answer = currentPuzzle.answer;
+  const lastRow = MAX_GUESSES - 1; // row index 5
+
+  // Visually cross out the last row with the first letter revealed
+  const len = answer.length;
+  for (let c = 0; c < len; c++) {
+    const tile = getTile(lastRow, c);
+    if (c === 0) {
+      tile.textContent = answer[0];
+      tile.classList.add('reveal', 'correct');
+    } else {
+      tile.classList.add('hint-locked');
+    }
+  }
+
+  // Update hint text
+  document.getElementById('gameHint').innerHTML =
+    `Starts with <strong>${answer[0]}</strong> — ${len} letters`;
+  revealedHint = true;
+
+  // Mark button as used
+  const hintBtn = document.getElementById('hintBtn');
+  hintBtn.classList.add('used');
+  hintBtn.textContent = '💡 Used';
+
+  showToast(`Hint: starts with ${answer[0]} — last row locked!`);
+}
+
 // Input
 function handleKey(key) {
   if (gameOver) return;
@@ -1483,10 +1553,11 @@ function submitGuess() {
   currentGuess = '';
 
   const totalDelay = len * 180 + 250;
+  const effectiveMax = hintUsed ? MAX_GUESSES - 1 : MAX_GUESSES;
   setTimeout(() => {
     if (guess === answer) {
       endGame(true);
-    } else if (currentRow >= MAX_GUESSES) {
+    } else if (currentRow >= effectiveMax) {
       endGame(false);
     } else if (currentRow >= 3 && !revealedHint) {
       revealedHint = true;
@@ -1515,8 +1586,10 @@ const LOSE_MESSAGES = [
 function endGame(won) {
   gameOver = true;
   const score = won ? guesses.length : 'X';
-  savedPuzzles[currentPuzzle.num] = { score, won, emoji: resultEmoji.join('\n') };
-  addToLeaderboard(currentPuzzle.num, playerName, score, resultEmoji.join('\n'));
+  const hintTag = hintUsed ? ' 💡' : '';
+  const emojiStr = resultEmoji.join('\n') + (hintUsed ? '\n💡 Hint used' : '');
+  savedPuzzles[currentPuzzle.num] = { score, won, hint: hintUsed, emoji: emojiStr };
+  addToLeaderboard(currentPuzzle.num, playerName, score, emojiStr);
   saveState();
 
   const title = document.getElementById('endTitle');
@@ -1528,7 +1601,7 @@ function endGame(won) {
     title.className = 'lose';
   }
   document.getElementById('endAnswer').textContent = currentPuzzle.answer;
-  document.getElementById('endGrid').textContent = resultEmoji.join('\n');
+  document.getElementById('endGrid').textContent = emojiStr;
 
   // Show/hide Next Puzzle button
   const nextBtn = document.getElementById('nextPuzzleBtn');

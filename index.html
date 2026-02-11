@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gunners Wordle - The Arsenal Word Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Arsenal Official Colors */
+      --arsenal-red: #EF0107;
+      --arsenal-red-dark: #C40005;
+      --arsenal-red-glow: rgba(239, 1, 7, 0.25);
+      --arsenal-navy: #023474;
+      --arsenal-navy-light: #034694;
+      --arsenal-gold: #D4AF37;
+      --arsenal-gold-light: #E8C84A;
+      --arsenal-white: #FFFFFF;
+
+      /* Game Colors */
+      --correct: #538d4e;
+      --correct-glow: rgba(83, 141, 78, 0.3);
+      --present: #b59f3b;
+      --present-glow: rgba(181, 159, 59, 0.3);
+      --absent: #3a3a3c;
+
+      /* Surfaces */
+      --bg-deep: #0a0c14;
+      --bg: #10131c;
+      --bg-card: #181c28;
+      --bg-card-hover: #1e2335;
+      --bg-surface: #1a1f2e;
+      --border: #252a3a;
+      --border-light: #333a50;
+
+      /* Text */
+      --text: #f0f0f0;
+      --text-mid: #a0a8b8;
+      --text-dim: #6a7080;
+
+      /* Tiles */
+      --tile-border: #353a4c;
+      --tile-filled: #5a6078;
+      --tile-size: clamp(38px, 9.5vw, 54px);
+      --tile-font: clamp(1.2rem, 5vw, 1.8rem);
+      --key-height: clamp(44px, 7.5vh, 54px);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ─── Screens ─── */
+    .screen { display: none; flex-direction: column; min-height: 100dvh; }
+    .screen.active { display: flex; }
+
+    /* ─── Top Bar ─── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.8rem;
+      border-bottom: 2px solid var(--arsenal-red);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      background: linear-gradient(180deg, #12162000 0%, var(--bg) 100%);
+      background-color: var(--bg);
+      z-index: 50;
+    }
+
+    .topbar-title {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--arsenal-white);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .topbar-title .cannon {
+      width: 22px;
+      height: 22px;
+      fill: var(--arsenal-red);
+      flex-shrink: 0;
+    }
+
+    .topbar-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: all 0.15s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .topbar-btn:active { background: rgba(255,255,255,0.12); transform: scale(0.96); }
+    .topbar-actions { display: flex; gap: 0.5rem; }
+
+    /* ═══════════════════════════════════════════
+       CANNON SVG (inline)
+       ═══════════════════════════════════════════ */
+    .cannon-svg {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+    }
+
+    /* ═══════════════════════════════════════════
+       HOME SCREEN
+       ═══════════════════════════════════════════ */
+    .home-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.8rem;
+      padding-bottom: 2rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 1.5rem 1rem 1rem;
+      margin-bottom: 0.8rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at center, var(--arsenal-red-glow) 0%, transparent 55%);
+      pointer-events: none;
+    }
+
+    .hero-cannon {
+      width: 56px;
+      height: 56px;
+      fill: var(--arsenal-red);
+      margin-bottom: 0.6rem;
+      filter: drop-shadow(0 0 20px rgba(239, 1, 7, 0.4));
+      position: relative;
+    }
+
+    .hero h1 {
+      font-family: 'Oswald', sans-serif;
+      font-size: clamp(1.8rem, 6vw, 2.6rem);
+      font-weight: 700;
+      color: var(--arsenal-white);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      line-height: 1.1;
+      position: relative;
+    }
+
+    .hero h1 .red { color: var(--arsenal-red); }
+
+    .hero .tagline {
+      font-size: 0.9rem;
+      color: var(--text-mid);
+      margin-top: 0.4rem;
+      position: relative;
+    }
+
+    .hero .motto {
+      display: inline-block;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--arsenal-gold);
+      margin-top: 0.6rem;
+      padding: 0.25rem 1rem;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      border-radius: 4px;
+      position: relative;
+    }
+
+    /* Stats Row */
+    .home-stats {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 380px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .stat-box {
+      flex: 1;
+      padding: 0.7rem 0.5rem;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+
+    .stat-box:last-child { border-right: none; }
+    .stat-box .stat-val { font-family: 'Oswald', sans-serif; font-size: 1.4rem; font-weight: 700; display: block; }
+    .stat-box .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-top: 0.1rem; }
+    .stat-box.wins .stat-val { color: var(--correct); }
+    .stat-box.losses .stat-val { color: var(--arsenal-red); }
+    .stat-box.streak .stat-val { color: var(--arsenal-gold); }
+    .stat-box.played .stat-val { color: var(--text-mid); }
+
+    /* Name Input */
+    .name-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .name-bar label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+    }
+
+    .name-input {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.7rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      width: 160px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .name-input:focus { outline: none; border-color: var(--arsenal-red); box-shadow: 0 0 0 3px var(--arsenal-red-glow); }
+
+    /* Section Labels */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+      padding: 0 0.2rem;
+    }
+
+    .section-header .line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .section-header .label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    /* Puzzle Grid */
+    .puzzle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+      gap: 8px;
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    .puzzle-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 0.4rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .puzzle-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--arsenal-red);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .puzzle-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+    .puzzle-card:hover::before { opacity: 1; }
+    .puzzle-card:active { transform: scale(0.96); }
+
+    .puzzle-card .pnum {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .puzzle-card .picon {
+      font-size: 1.3rem;
+      margin: 0.2rem 0;
+    }
+
+    .puzzle-card .plen {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.75rem;
+      color: var(--text-mid);
+      letter-spacing: 1px;
+    }
+
+    .puzzle-card .pstatus {
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .puzzle-card.solved {
+      border-color: var(--correct);
+      background: linear-gradient(180deg, rgba(83,141,78,0.08) 0%, var(--bg-card) 100%);
+    }
+    .puzzle-card.solved::before { background: var(--correct); opacity: 1; }
+    .puzzle-card.solved .pstatus { color: var(--correct); }
+    .puzzle-card.solved .pnum { color: var(--correct); }
+
+    .puzzle-card.failed {
+      border-color: rgba(239,1,7,0.3);
+      opacity: 0.6;
+    }
+    .puzzle-card.failed::before { background: var(--arsenal-red); opacity: 0.5; }
+    .puzzle-card.failed .pstatus { color: var(--arsenal-red); }
+
+    /* Import Banner */
+    .import-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(212,175,55,0.08), rgba(212,175,55,0.02));
+      border: 1px solid rgba(212,175,55,0.3);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .import-banner.show { display: block; }
+    .import-banner p { font-size: 0.85rem; color: var(--text-mid); margin-bottom: 0.6rem; }
+    .import-banner strong { color: var(--arsenal-gold); }
+
+    /* ═══════════════════════════════════════════
+       GAME SCREEN
+       ═══════════════════════════════════════════ */
+    .game-screen { height: 100dvh; }
+
+    .game-info {
+      text-align: center;
+      padding: 0.35rem 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .game-info .puzzle-label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.8rem;
+      color: var(--arsenal-gold);
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .game-info .hint-text {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 0.1rem;
+    }
+
+    .game-info .hint-text strong { color: var(--arsenal-gold); }
+
+    .board-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.4rem;
+      overflow: hidden;
+    }
+
+    .board {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .row { display: flex; gap: 5px; }
+
+    .tile {
+      width: var(--tile-size);
+      height: var(--tile-size);
+      border: 2px solid var(--tile-border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Oswald', sans-serif;
+      font-size: var(--tile-font);
+      font-weight: 600;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--text);
+      transition: transform 0.08s;
+    }
+
+    .tile.filled { border-color: var(--tile-filled); animation: pop 0.08s ease; }
+    .tile.reveal { animation: flip 0.45s ease forwards; }
+    .tile.correct { background: var(--correct); border-color: var(--correct); color: #fff; }
+    .tile.present { background: var(--present); border-color: var(--present); color: #fff; }
+    .tile.absent { background: var(--absent); border-color: var(--absent); color: #999; }
+
+    @keyframes pop { 50% { transform: scale(1.08); } }
+    @keyframes flip {
+      0% { transform: rotateX(0); }
+      50% { transform: rotateX(90deg); }
+      100% { transform: rotateX(0); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-5px); }
+      40% { transform: translateX(5px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(3px); }
+    }
+    @keyframes bounceIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Keyboard */
+    .keyboard {
+      padding: 0.3rem 0.25rem 0.6rem;
+      flex-shrink: 0;
+      max-width: 520px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .kb-row {
+      display: flex;
+      justify-content: center;
+      gap: clamp(3px, 0.8vw, 5px);
+      margin-bottom: clamp(3px, 0.8vw, 5px);
+    }
+
+    .kb-key {
+      height: var(--key-height);
+      min-width: clamp(26px, 7.5vw, 38px);
+      padding: 0 clamp(4px, 1vw, 8px);
+      border: none;
+      border-radius: 5px;
+      background: #4a5068;
+      color: var(--text);
+      font-family: 'Oswald', sans-serif;
+      font-size: clamp(0.75rem, 2.5vw, 0.95rem);
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      letter-spacing: 0.5px;
+    }
+
+    .kb-key:active { transform: scale(0.93); background: #5a6280; }
+    .kb-key.wide { min-width: clamp(48px, 12vw, 62px); font-size: clamp(0.6rem, 2vw, 0.8rem); }
+    .kb-key.correct { background: var(--correct); color: #fff; }
+    .kb-key.present { background: var(--present); color: #fff; }
+    .kb-key.absent { background: #2a2d38; color: #555; }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--arsenal-white);
+      color: var(--bg);
+      padding: 0.5rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      font-family: 'Inter', sans-serif;
+      animation: fadeInOut 2s ease forwards;
+      pointer-events: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateY(-8px); }
+      12% { opacity: 1; transform: translateY(0); }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ═══════════════════════════════════════════
+       LEADERBOARD SCREEN
+       ═══════════════════════════════════════════ */
+    .lb-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+
+    .lb-header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .lb-header h2 {
+      font-family: 'Oswald', sans-serif;
+      color: var(--arsenal-gold);
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 0.2rem;
+    }
+
+    .lb-header p { color: var(--text-dim); font-size: 0.8rem; }
+
+    .lb-actions {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .lb-btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .lb-btn:active { transform: scale(0.96); }
+    .lb-btn.primary { background: var(--arsenal-red); color: #fff; }
+    .lb-btn.primary:hover { background: var(--arsenal-red-dark); }
+    .lb-btn.secondary { background: var(--bg-card); color: var(--arsenal-gold); border: 1px solid var(--border); }
+
+    .lb-table {
+      width: 100%;
+      max-width: 460px;
+      margin: 0 auto;
+      border-collapse: collapse;
+    }
+
+    .lb-table th {
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      padding: 0.5rem 0.3rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .lb-table td {
+      padding: 0.6rem 0.3rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 0.9rem;
+    }
+
+    .lb-table .rank { width: 35px; text-align: center; font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--arsenal-gold); }
+    .lb-table .name-col { font-weight: 600; }
+    .lb-table .score-col { text-align: center; font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 1rem; }
+    .lb-table .grid-col { font-family: monospace; font-size: 0.75rem; line-height: 1.3; white-space: pre; }
+
+    .lb-table .score-1 { color: var(--arsenal-gold); }
+    .lb-table .score-2 { color: var(--correct); }
+    .lb-table .score-x { color: var(--arsenal-red); }
+
+    .lb-empty {
+      text-align: center;
+      color: var(--text-dim);
+      padding: 2rem;
+      font-size: 0.9rem;
+    }
+
+    .lb-me {
+      background: linear-gradient(90deg, rgba(239,1,7,0.08), transparent);
+      border-left: 2px solid var(--arsenal-red);
+    }
+
+    /* ═══════════════════════════════════════════
+       END-GAME MODAL
+       ═══════════════════════════════════════════ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      max-width: 340px;
+      width: 100%;
+      text-align: center;
+      animation: bounceIn 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .modal::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--arsenal-red), var(--arsenal-gold), var(--arsenal-red));
+    }
+
+    .modal h2 {
+      font-family: 'Oswald', sans-serif;
+      margin-bottom: 0.5rem;
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .modal h2.win { color: var(--correct); }
+    .modal h2.lose { color: var(--arsenal-red); }
+
+    .modal .answer-reveal {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.3rem;
+      color: var(--arsenal-gold);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      margin-bottom: 0.6rem;
+    }
+
+    .modal .emoji-grid {
+      font-family: monospace;
+      font-size: 1rem;
+      line-height: 1.35;
+      margin-bottom: 1rem;
+      white-space: pre;
+    }
+
+    .modal-btns {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .modal-btn {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .modal-btn:active { transform: scale(0.95); }
+    .modal-btn.red { background: var(--arsenal-red); color: #fff; }
+    .modal-btn.gray { background: var(--bg-card); color: var(--text-mid); border: 1px solid var(--border); }
+    .modal-btn.gold { background: var(--arsenal-gold); color: var(--bg); }
+
+    /* ═══════════════════════════════════════════
+       HOW TO PLAY MODAL
+       ═══════════════════════════════════════════ */
+    .howto-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 250;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+    }
+    .howto-overlay.show { display: flex; }
+
+    .howto {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      max-width: 380px;
+      width: 100%;
+      max-height: 80dvh;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .howto::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--arsenal-red), var(--arsenal-gold), var(--arsenal-red));
+    }
+
+    .howto h3 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--arsenal-gold);
+      margin-bottom: 0.8rem;
+      text-align: center;
+    }
+
+    .howto p {
+      font-size: 0.85rem;
+      color: var(--text-mid);
+      line-height: 1.5;
+      margin-bottom: 0.6rem;
+    }
+
+    .howto .example-row {
+      display: flex;
+      gap: 4px;
+      margin: 0.6rem 0;
+      justify-content: center;
+    }
+
+    .howto .mini-tile {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Oswald', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .howto .close-btn {
+      display: block;
+      margin: 1rem auto 0;
+      padding: 0.6rem 2rem;
+      background: var(--arsenal-red);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════ CANNON SVG TEMPLATE ═══════ -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="cannonIcon" viewBox="0 0 100 60">
+    <path d="M5 45 L25 45 L25 35 L85 25 L95 28 L95 32 L85 35 L25 45 Z" />
+    <rect x="15" y="42" width="20" height="8" rx="2"/>
+    <circle cx="20" cy="52" r="6"/>
+    <circle cx="40" cy="52" r="6"/>
+  </symbol>
+</svg>
+
+<!-- ═══════ TOAST ═══════ -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- ═══════ HOME SCREEN ═══════ -->
+<div class="screen active" id="homeScreen">
+  <div class="topbar">
+    <div class="topbar-title">
+      <svg class="cannon"><use href="#cannonIcon"/></svg>
+      Gunners Wordle
+    </div>
+    <div class="topbar-actions">
+      <button class="topbar-btn" onclick="showHowTo()">How to Play</button>
+    </div>
+  </div>
+  <div class="home-content">
+
+    <div class="hero">
+      <svg class="hero-cannon"><use href="#cannonIcon"/></svg>
+      <h1>Gunners <span class="red">Wordle</span></h1>
+      <p class="tagline">How well do you know The Arsenal?</p>
+      <div class="motto">Victoria Concordia Crescit</div>
+    </div>
+
+    <div class="name-bar">
+      <label>Your Name</label>
+      <input class="name-input" id="playerNameInput" type="text" maxlength="15" placeholder="Gooner name..." spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="home-stats">
+      <div class="stat-box played"><span class="stat-val" id="homePlayed">0</span><span class="stat-label">Played</span></div>
+      <div class="stat-box wins"><span class="stat-val" id="homeWins">0</span><span class="stat-label">Won</span></div>
+      <div class="stat-box losses"><span class="stat-val" id="homeLosses">0</span><span class="stat-label">Lost</span></div>
+      <div class="stat-box streak"><span class="stat-val" id="homeStreak">0</span><span class="stat-label">Best Streak</span></div>
+    </div>
+
+    <div class="import-banner" id="importBanner">
+      <p>A fellow Gooner sent you scores!</p>
+      <button class="lb-btn primary" onclick="acceptImport()">Add to Leaderboard</button>
+      <button class="lb-btn secondary" onclick="dismissImport()" style="margin-left:0.3rem">Dismiss</button>
+    </div>
+
+    <div class="section-header">
+      <div class="line"></div>
+      <span class="label">Current Squad</span>
+      <div class="line"></div>
+    </div>
+    <div class="puzzle-grid" id="puzzleGridCurrent"></div>
+
+    <div class="section-header" style="margin-top:1.2rem">
+      <div class="line"></div>
+      <span class="label">Legends &amp; Icons</span>
+      <div class="line"></div>
+    </div>
+    <div class="puzzle-grid" id="puzzleGridLegends"></div>
+
+  </div>
+</div>
+
+<!-- ═══════ GAME SCREEN ═══════ -->
+<div class="screen game-screen" id="gameScreen">
+  <div class="topbar">
+    <button class="topbar-btn" onclick="goHome()">&#8592; Back</button>
+    <div class="topbar-title" id="gameTopTitle">
+      <svg class="cannon"><use href="#cannonIcon"/></svg>
+      Puzzle #1
+    </div>
+    <div class="topbar-actions">
+      <button class="topbar-btn" onclick="showLeaderboard()">&#127942;</button>
+    </div>
+  </div>
+  <div class="game-info">
+    <div class="puzzle-label" id="gamePuzzleLabel"></div>
+    <div class="hint-text" id="gameHint"></div>
+  </div>
+  <div class="board-wrapper">
+    <div class="board" id="board"></div>
+  </div>
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<!-- ═══════ LEADERBOARD SCREEN ═══════ -->
+<div class="screen" id="lbScreen">
+  <div class="topbar">
+    <button class="topbar-btn" onclick="goBackFromLb()">&#8592; Back</button>
+    <div class="topbar-title">
+      <svg class="cannon"><use href="#cannonIcon"/></svg>
+      Leaderboard
+    </div>
+    <div></div>
+  </div>
+  <div class="lb-content">
+    <div class="lb-header">
+      <h2 id="lbTitle">Puzzle #1</h2>
+      <p id="lbSubtitle"></p>
+    </div>
+    <div class="lb-actions">
+      <button class="lb-btn primary" onclick="shareLb()">Share Scores</button>
+      <button class="lb-btn secondary" onclick="copyLbLink()">Copy Link</button>
+    </div>
+    <table class="lb-table" id="lbTable">
+      <thead>
+        <tr>
+          <th class="rank">#</th>
+          <th>Gooner</th>
+          <th style="text-align:center">Score</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+    <div class="lb-empty" id="lbEmpty" style="display:none">No scores yet. Be the first Gooner to play!</div>
+  </div>
+</div>
+
+<!-- ═══════ END-GAME MODAL ═══════ -->
+<div class="modal-overlay" id="endModal">
+  <div class="modal">
+    <h2 id="endTitle"></h2>
+    <div class="answer-reveal" id="endAnswer"></div>
+    <div class="emoji-grid" id="endGrid"></div>
+    <div class="modal-btns">
+      <button class="modal-btn gray" onclick="copyResult()">Copy Result</button>
+      <button class="modal-btn gold" onclick="showLeaderboard()">Leaderboard</button>
+      <button class="modal-btn red" onclick="goHome()">Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ HOW TO PLAY ═══════ -->
+<div class="howto-overlay" id="howtoModal">
+  <div class="howto">
+    <h3>How to Play</h3>
+    <p>Guess the <strong style="color:var(--arsenal-red)">Arsenal</strong> player's surname in 6 tries. Each guess must fill all the letters.</p>
+    <p>After each guess, the tiles will change colour to show how close you are:</p>
+
+    <div class="example-row">
+      <div class="mini-tile" style="background:var(--correct)">S</div>
+      <div class="mini-tile" style="background:var(--absent)">A</div>
+      <div class="mini-tile" style="background:var(--absent)">L</div>
+      <div class="mini-tile" style="background:var(--absent)">A</div>
+      <div class="mini-tile" style="background:var(--absent)">H</div>
+    </div>
+    <p><strong style="color:var(--correct)">Green</strong> = Correct letter, correct position</p>
+
+    <div class="example-row">
+      <div class="mini-tile" style="background:var(--absent)">R</div>
+      <div class="mini-tile" style="background:var(--present)">I</div>
+      <div class="mini-tile" style="background:var(--absent)">C</div>
+      <div class="mini-tile" style="background:var(--absent)">E</div>
+      <div class="mini-tile" style="background:var(--absent)">S</div>
+    </div>
+    <p><strong style="color:var(--present)">Yellow</strong> = Correct letter, wrong position</p>
+
+    <div class="example-row">
+      <div class="mini-tile" style="background:var(--absent)">P</div>
+      <div class="mini-tile" style="background:var(--absent)">E</div>
+      <div class="mini-tile" style="background:var(--absent)">P</div>
+      <div class="mini-tile" style="background:var(--absent)">E</div>
+      <div class="mini-tile" style="background:var(--absent)">S</div>
+    </div>
+    <p><strong style="color:var(--text-dim)">Grey</strong> = Letter not in the word</p>
+
+    <p style="margin-top:0.8rem">After 3 guesses, you'll get a hint revealing the first letter. Each puzzle has a fixed answer so you can compare scores with your mates!</p>
+    <p style="color:var(--arsenal-gold); text-align:center; margin-top:0.5rem"><strong>COYG!</strong></p>
+
+    <button class="close-btn" onclick="closeHowTo()">Got it!</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// PUZZLE DATA — 75 Arsenal surnames
+// ═══════════════════════════════════════════
+const PUZZLES = [
+  // Current squad (1-25)
+  { num: 1,  answer: "SAKA",        hint: "Starboy, #7", era: "current" },
+  { num: 2,  answer: "RICE",        hint: "Midfielder, #41", era: "current" },
+  { num: 3,  answer: "SALIBA",      hint: "Centre-Back, #2", era: "current" },
+  { num: 4,  answer: "ODEGAARD",    hint: "Captain, #8", era: "current" },
+  { num: 5,  answer: "HAVERTZ",     hint: "Forward, #29", era: "current" },
+  { num: 6,  answer: "RAYA",        hint: "Goalkeeper, #22", era: "current" },
+  { num: 7,  answer: "WHITE",       hint: "Mr. Versatile, #4", era: "current" },
+  { num: 8,  answer: "GABRIEL",     hint: "Centre-Back, #6", era: "current" },
+  { num: 9,  answer: "TROSSARD",    hint: "Belgian Forward, #19", era: "current" },
+  { num: 10, answer: "TIMBER",      hint: "Dutch Defender, #12", era: "current" },
+  { num: 11, answer: "ZINCHENKO",   hint: "Left-Back, #35", era: "current" },
+  { num: 12, answer: "PARTEY",      hint: "Midfielder, #5", era: "current" },
+  { num: 13, answer: "JORGINHO",    hint: "Italian Midfielder, #20", era: "current" },
+  { num: 14, answer: "MARTINELLI",  hint: "Brazilian Winger, #11", era: "current" },
+  { num: 15, answer: "NKETIAH",     hint: "Hale End Graduate, #14", era: "current" },
+  { num: 16, answer: "TOMIYASU",    hint: "Japanese Defender, #18", era: "current" },
+  { num: 17, answer: "KIWIOR",      hint: "Polish Defender, #15", era: "current" },
+  { num: 18, answer: "RAMSDALE",    hint: "Goalkeeper, #1", era: "current" },
+  { num: 19, answer: "NELSON",      hint: "Hale End Winger, #24", era: "current" },
+  { num: 20, answer: "NWANERI",     hint: "Youngest Ever, Academy Star", era: "current" },
+  { num: 21, answer: "VIEIRA",      hint: "Portuguese Midfielder, #21", era: "current" },
+  { num: 22, answer: "ELNENY",      hint: "Egyptian Midfielder", era: "current" },
+  { num: 23, answer: "JESUS",       hint: "Brazilian Forward, #9", era: "current" },
+  { num: 24, answer: "XHAKA",      hint: "Former Captain & Warrior", era: "current" },
+  { num: 25, answer: "SMITH ROWE",  hint: "Croydon De Bruyne, #10", era: "current" },
+
+  // Legends (26-75)
+  { num: 26, answer: "HENRY",       hint: "The King, All-Time Top Scorer", era: "legend" },
+  { num: 27, answer: "BERGKAMP",    hint: "The Iceman, Non-Flying Dutchman", era: "legend" },
+  { num: 28, answer: "ADAMS",       hint: "Mr. Arsenal, Captain Fantastic", era: "legend" },
+  { num: 29, answer: "WRIGHT",      hint: "Wrighty! Club Legend Striker", era: "legend" },
+  { num: 30, answer: "PIRES",       hint: "Invincible French Winger", era: "legend" },
+  { num: 31, answer: "CAMPBELL",    hint: "Came from the Lane, Centre-Back", era: "legend" },
+  { num: 32, answer: "SEAMAN",      hint: "Safe Hands, Legendary Keeper", era: "legend" },
+  { num: 33, answer: "FABREGAS",    hint: "La Masia reject, Arsenal Captain", era: "legend" },
+  { num: 34, answer: "RAMSEY",      hint: "Welsh Wizard, FA Cup Hero", era: "legend" },
+  { num: 35, answer: "OZIL",        hint: "Assist King, #10 Maestro", era: "legend" },
+  { num: 36, answer: "SANCHEZ",     hint: "Chilean Warrior, Piano Man", era: "legend" },
+  { num: 37, answer: "WALCOTT",     hint: "Youngest England Call-Up", era: "legend" },
+  { num: 38, answer: "WILSHERE",    hint: "That Norwich Goal, Jack!", era: "legend" },
+  { num: 39, answer: "ROSICKY",     hint: "Little Mozart, Czech Magician", era: "legend" },
+  { num: 40, answer: "GIROUD",      hint: "Scorpion King, French Striker", era: "legend" },
+  { num: 41, answer: "CAZORLA",     hint: "Two-Footed Wizard, Santi!", era: "legend" },
+  { num: 42, answer: "ARTETA",      hint: "Player to Manager, The Boss", era: "legend" },
+  { num: 43, answer: "LEHMANN",     hint: "Mad Jens, German Keeper", era: "legend" },
+  { num: 44, answer: "WENGER",      hint: "Le Professeur, The Greatest", era: "legend" },
+  { num: 45, answer: "LJUNGBERG",   hint: "Red Hair, Swedish Invincible", era: "legend" },
+  { num: 46, answer: "BRADY",       hint: "Irish Genius, 70s Legend", era: "legend" },
+  { num: 47, answer: "PARLOUR",     hint: "The Romford Pele", era: "legend" },
+  { num: 48, answer: "KEOWN",       hint: "The Raging Bull, Centre-Back", era: "legend" },
+  { num: 49, answer: "COLE",        hint: "Best LB in the World", era: "legend" },
+  { num: 50, answer: "LAUREN",      hint: "Cameroonian Invincible RB", era: "legend" },
+  { num: 51, answer: "TOURE",       hint: "Ivorian Invincible Wall", era: "legend" },
+  { num: 52, answer: "NASRI",       hint: "French Flair, Silky Midfielder", era: "legend" },
+  { num: 53, answer: "ADEBAYOR",    hint: "Controversial Togolese Striker", era: "legend" },
+  { num: 54, answer: "REYES",       hint: "Spanish Angel, Taken Too Soon", era: "legend" },
+  { num: 55, answer: "PODOLSKI",    hint: "Aha! German Left Foot Rocket", era: "legend" },
+  { num: 56, answer: "FLAMINI",     hint: "French Midfield Destroyer", era: "legend" },
+  { num: 57, answer: "SAGNA",       hint: "Mr. Consistent, French RB", era: "legend" },
+  { num: 58, answer: "CLICHY",      hint: "Speedy French Left-Back", era: "legend" },
+  { num: 59, answer: "MONREAL",     hint: "Mr. Reliable, Spanish LB", era: "legend" },
+  { num: 60, answer: "BELLERIN",    hint: "Fastest Gunner, Spanish RB", era: "legend" },
+  { num: 61, answer: "DIABY",       hint: "What Could Have Been...", era: "legend" },
+  { num: 62, answer: "LACAZETTE",   hint: "Laca! French Striker #9", era: "legend" },
+  { num: 63, answer: "AUBAMEYANG",  hint: "Auba! Golden Boot Captain", era: "legend" },
+  { num: 64, answer: "MERTESACKER", hint: "The BFG, German Giant", era: "legend" },
+  { num: 65, answer: "COQUELIN",    hint: "Surprise Package, Le Coq", era: "legend" },
+  { num: 66, answer: "HOLDING",     hint: "The Holding Role, Defender", era: "legend" },
+  { num: 67, answer: "PEPE",        hint: "Record Signing Winger", era: "legend" },
+  { num: 68, answer: "EDU",         hint: "Invincible to Sporting Director", era: "legend" },
+  { num: 69, answer: "LOKONGA",     hint: "Belgian Young Midfielder", era: "legend" },
+  { num: 70, answer: "GERVINHO",    hint: "Forehead Winger from Ivory Coast", era: "legend" },
+  { num: 71, answer: "SILVA",       hint: "Brazilian Defender", era: "legend" },
+  { num: 72, answer: "TIERNEY",     hint: "Brave Heart, Scottish Warrior", era: "legend" },
+  { num: 73, answer: "MAGALHAES",   hint: "Gabriel's Full Surname", era: "legend" },
+  { num: 74, answer: "MARQUINHOS",  hint: "Young Brazilian Winger", era: "legend" },
+  { num: 75, answer: "MERCER",      hint: "Hale End Young Midfielder", era: "legend" },
+];
+
+const MAX_GUESSES = 6;
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const STORAGE = {
+  name: 'arsenalWordle_name',
+  puzzles: 'arsenalWordle_puzzles',
+  leaderboard: 'arsenalWordle_lb',
+};
+
+let playerName = '';
+let savedPuzzles = {};
+let leaderboards = {};
+let currentPuzzle = null;
+let guesses = [];
+let currentGuess = '';
+let currentRow = 0;
+let gameOver = false;
+let revealedHint = false;
+let resultEmoji = [];
+let lbViewPuzzle = null;
+let pendingImport = null;
+
+function loadState() {
+  playerName = localStorage.getItem(STORAGE.name) || '';
+  try { savedPuzzles = JSON.parse(localStorage.getItem(STORAGE.puzzles)) || {}; } catch(e) { savedPuzzles = {}; }
+  try { leaderboards = JSON.parse(localStorage.getItem(STORAGE.leaderboard)) || {}; } catch(e) { leaderboards = {}; }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE.name, playerName);
+  localStorage.setItem(STORAGE.puzzles, JSON.stringify(savedPuzzles));
+  localStorage.setItem(STORAGE.leaderboard, JSON.stringify(leaderboards));
+}
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  document.getElementById('endModal').classList.remove('show');
+  showScreen('homeScreen');
+  renderHome();
+}
+
+function goBackFromLb() {
+  if (currentPuzzle && !gameOver) {
+    showScreen('gameScreen');
+  } else {
+    goHome();
+  }
+}
+
+// ═══════════════════════════════════════════
+// HOME SCREEN
+// ═══════════════════════════════════════════
+function renderHome() {
+  document.getElementById('playerNameInput').value = playerName;
+
+  let wins = 0, losses = 0, streak = 0, curStreak = 0, played = 0;
+  PUZZLES.forEach(p => {
+    const s = savedPuzzles[p.num];
+    if (s) {
+      played++;
+      if (s.won) { wins++; curStreak++; streak = Math.max(streak, curStreak); }
+      else { losses++; curStreak = 0; }
+    }
+  });
+  document.getElementById('homePlayed').textContent = played;
+  document.getElementById('homeWins').textContent = wins;
+  document.getElementById('homeLosses').textContent = losses;
+  document.getElementById('homeStreak').textContent = streak;
+
+  renderPuzzleGrid('puzzleGridCurrent', PUZZLES.filter(p => p.era === 'current'));
+  renderPuzzleGrid('puzzleGridLegends', PUZZLES.filter(p => p.era === 'legend'));
+}
+
+function renderPuzzleGrid(containerId, puzzles) {
+  const grid = document.getElementById(containerId);
+  grid.innerHTML = '';
+
+  puzzles.forEach(p => {
+    const card = document.createElement('div');
+    card.classList.add('puzzle-card');
+    const saved = savedPuzzles[p.num];
+
+    let statusText = 'Play';
+    let icon = '<svg style="width:20px;height:20px;fill:var(--arsenal-red);opacity:0.5"><use href="#cannonIcon"/></svg>';
+
+    if (saved) {
+      if (saved.won) {
+        card.classList.add('solved');
+        statusText = `${saved.score}/6`;
+        icon = '<span style="font-size:1.1rem">&#9989;</span>';
+      } else {
+        card.classList.add('failed');
+        statusText = 'X/6';
+        icon = '<span style="font-size:1.1rem">&#10060;</span>';
+      }
+    }
+
+    card.innerHTML = `
+      <div class="pnum">#${p.num}</div>
+      <div class="picon">${icon}</div>
+      <div class="plen">${p.answer.replace(/ /g,'').length} Letters</div>
+      <div class="pstatus">${statusText}</div>
+    `;
+
+    card.addEventListener('click', () => startPuzzle(p));
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById('playerNameInput').addEventListener('input', e => {
+  playerName = e.target.value.trim();
+  saveState();
+});
+
+// ═══════════════════════════════════════════
+// HOW TO PLAY
+// ═══════════════════════════════════════════
+function showHowTo() {
+  document.getElementById('howtoModal').classList.add('show');
+}
+
+function closeHowTo() {
+  document.getElementById('howtoModal').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════
+// GAME
+// ═══════════════════════════════════════════
+function startPuzzle(puzzle) {
+  currentPuzzle = puzzle;
+  const saved = savedPuzzles[puzzle.num];
+
+  if (saved) {
+    lbViewPuzzle = puzzle.num;
+    showLeaderboard();
+    return;
+  }
+
+  if (!playerName) {
+    const name = prompt('Enter your Gooner name for the leaderboard:');
+    if (!name) return;
+    playerName = name.trim().substring(0, 15);
+    document.getElementById('playerNameInput').value = playerName;
+    saveState();
+  }
+
+  guesses = [];
+  currentGuess = '';
+  currentRow = 0;
+  gameOver = false;
+  revealedHint = false;
+  resultEmoji = [];
+
+  const titleEl = document.getElementById('gameTopTitle');
+  titleEl.innerHTML = `<svg class="cannon"><use href="#cannonIcon"/></svg> Puzzle #${puzzle.num}`;
+  document.getElementById('gamePuzzleLabel').textContent = `${puzzle.answer.length} letters`;
+  document.getElementById('gameHint').innerHTML = `${puzzle.hint}`;
+  document.getElementById('endModal').classList.remove('show');
+
+  buildBoard(puzzle.answer.length);
+  buildKeyboard();
+  showScreen('gameScreen');
+}
+
+function buildBoard(len) {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  for (let r = 0; r < MAX_GUESSES; r++) {
+    const row = document.createElement('div');
+    row.classList.add('row');
+    row.dataset.row = r;
+    for (let c = 0; c < len; c++) {
+      const tile = document.createElement('div');
+      tile.classList.add('tile');
+      tile.dataset.col = c;
+      row.appendChild(tile);
+    }
+    board.appendChild(row);
+  }
+}
+
+function getTile(row, col) {
+  return document.querySelector(`.row[data-row="${row}"] .tile[data-col="${col}"]`);
+}
+
+function updateCurrentRow() {
+  const len = currentPuzzle.answer.length;
+  for (let c = 0; c < len; c++) {
+    const tile = getTile(currentRow, c);
+    if (!tile) continue;
+    tile.textContent = currentGuess[c] || '';
+    tile.classList.toggle('filled', !!currentGuess[c]);
+  }
+}
+
+// Keyboard
+const KB_ROWS = [
+  'QWERTYUIOP'.split(''),
+  'ASDFGHJKL'.split(''),
+  ['ENTER', ...'ZXCVBNM'.split(''), 'BACK']
+];
+
+function buildKeyboard() {
+  const kb = document.getElementById('keyboard');
+  kb.innerHTML = '';
+  KB_ROWS.forEach(row => {
+    const rowDiv = document.createElement('div');
+    rowDiv.classList.add('kb-row');
+    row.forEach(key => {
+      const btn = document.createElement('button');
+      btn.classList.add('kb-key');
+      btn.dataset.key = key;
+      if (key === 'ENTER' || key === 'BACK') btn.classList.add('wide');
+      btn.textContent = key === 'BACK' ? '⌫' : key;
+      btn.addEventListener('click', () => handleKey(key));
+      rowDiv.appendChild(btn);
+    });
+    kb.appendChild(rowDiv);
+  });
+}
+
+function updateKeyColor(letter, state) {
+  const btn = document.querySelector(`.kb-key[data-key="${letter}"]`);
+  if (!btn) return;
+  const pri = { correct: 3, present: 2, absent: 1 };
+  const cur = btn.classList.contains('correct') ? 3
+    : btn.classList.contains('present') ? 2
+    : btn.classList.contains('absent') ? 1 : 0;
+  if (pri[state] > cur) {
+    btn.classList.remove('correct', 'present', 'absent');
+    btn.classList.add(state);
+  }
+}
+
+// Input
+function handleKey(key) {
+  if (gameOver) return;
+  if (key === ' ' && currentPuzzle.answer.includes(' ')) {
+    if (currentGuess.length < currentPuzzle.answer.length) {
+      currentGuess += ' ';
+      updateCurrentRow();
+    }
+    return;
+  }
+  if (key === 'BACK') {
+    currentGuess = currentGuess.slice(0, -1);
+    updateCurrentRow();
+    return;
+  }
+  if (key === 'ENTER') {
+    submitGuess();
+    return;
+  }
+  if (currentGuess.length < currentPuzzle.answer.length) {
+    currentGuess += key;
+    updateCurrentRow();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('gameScreen').classList.contains('active')) return;
+  if (gameOver) return;
+  if (e.key === 'Backspace') { e.preventDefault(); handleKey('BACK'); }
+  else if (e.key === 'Enter') { e.preventDefault(); handleKey('ENTER'); }
+  else if (e.key === ' ') { e.preventDefault(); handleKey(' '); }
+  else {
+    const k = e.key.toUpperCase();
+    if (k.length === 1 && k >= 'A' && k <= 'Z') handleKey(k);
+  }
+});
+
+// Evaluate
+function evaluate(guess, answer) {
+  const len = answer.length;
+  const result = Array(len).fill('absent');
+  const ansArr = answer.split('');
+  const gArr = guess.split('');
+  for (let i = 0; i < len; i++) {
+    if (gArr[i] === ansArr[i]) { result[i] = 'correct'; ansArr[i] = null; gArr[i] = null; }
+  }
+  for (let i = 0; i < len; i++) {
+    if (gArr[i] === null || gArr[i] === ' ') continue;
+    const idx = ansArr.indexOf(gArr[i]);
+    if (idx !== -1) { result[i] = 'present'; ansArr[idx] = null; }
+  }
+  return result;
+}
+
+function submitGuess() {
+  const answer = currentPuzzle.answer;
+  const len = answer.length;
+  if (currentGuess.length !== len) { showToast(`Need ${len} letters`); shakeRow(currentRow); return; }
+
+  const guess = currentGuess.toUpperCase();
+  const result = evaluate(guess, answer);
+
+  let emojiRow = '';
+  result.forEach((state, i) => {
+    const tile = getTile(currentRow, i);
+    setTimeout(() => { tile.classList.add('reveal', state); }, i * 180);
+    if (guess[i] !== ' ') updateKeyColor(guess[i], state);
+    emojiRow += state === 'correct' ? '🟩' : state === 'present' ? '🟨' : '⬛';
+  });
+  resultEmoji.push(emojiRow);
+  guesses.push(guess);
+  currentRow++;
+  currentGuess = '';
+
+  const totalDelay = len * 180 + 250;
+  setTimeout(() => {
+    if (guess === answer) {
+      endGame(true);
+    } else if (currentRow >= MAX_GUESSES) {
+      endGame(false);
+    } else if (currentRow >= 3 && !revealedHint) {
+      revealedHint = true;
+      document.getElementById('gameHint').innerHTML =
+        `Starts with <strong>${answer[0]}</strong> &mdash; ${answer.length} letters`;
+    }
+  }, totalDelay);
+}
+
+const WIN_MESSAGES = [
+  "What a signing! ⚽",
+  "You're world class! 🏆",
+  "The Emirates is rocking! 🔴",
+  "North London is RED! 🔥",
+  "Wenger would be proud! 👏",
+  "Victoria Concordia Crescit! ⭐"
+];
+
+const LOSE_MESSAGES = [
+  "Offside! Not this time.",
+  "Wenger almost signed you...",
+  "Red card! Try again.",
+  "That's a miss from 6 yards.",
+];
+
+function endGame(won) {
+  gameOver = true;
+  const score = won ? guesses.length : 'X';
+  savedPuzzles[currentPuzzle.num] = { score, won, emoji: resultEmoji.join('\n') };
+  addToLeaderboard(currentPuzzle.num, playerName, score, resultEmoji.join('\n'));
+  saveState();
+
+  const title = document.getElementById('endTitle');
+  if (won) {
+    title.textContent = WIN_MESSAGES[Math.floor(Math.random() * WIN_MESSAGES.length)];
+    title.className = 'win';
+  } else {
+    title.textContent = LOSE_MESSAGES[Math.floor(Math.random() * LOSE_MESSAGES.length)];
+    title.className = 'lose';
+  }
+  document.getElementById('endAnswer').textContent = currentPuzzle.answer;
+  document.getElementById('endGrid').textContent = resultEmoji.join('\n');
+  setTimeout(() => { document.getElementById('endModal').classList.add('show'); }, 400);
+}
+
+// ═══════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════
+function addToLeaderboard(puzzleNum, name, score, grid) {
+  if (!leaderboards[puzzleNum]) leaderboards[puzzleNum] = [];
+  const lb = leaderboards[puzzleNum];
+  const idx = lb.findIndex(e => e.name.toLowerCase() === name.toLowerCase());
+  if (idx !== -1) lb.splice(idx, 1);
+  lb.push({ name, score, grid });
+  lb.sort((a, b) => { const sa = a.score === 'X' ? 99 : a.score; const sb = b.score === 'X' ? 99 : b.score; return sa - sb; });
+  saveState();
+}
+
+function showLeaderboard(puzzleNum) {
+  const pNum = puzzleNum || lbViewPuzzle || (currentPuzzle ? currentPuzzle.num : 1);
+  lbViewPuzzle = pNum;
+  const puzzle = PUZZLES.find(p => p.num === pNum);
+  document.getElementById('lbTitle').textContent = `Puzzle #${pNum}`;
+  const saved = savedPuzzles[pNum];
+  document.getElementById('lbSubtitle').textContent = saved
+    ? `Answer: ${puzzle.answer}` : `${puzzle.answer.length} letters — ${puzzle.hint}`;
+
+  const lb = leaderboards[pNum] || [];
+  const tbody = document.getElementById('lbBody');
+  const emptyEl = document.getElementById('lbEmpty');
+  tbody.innerHTML = '';
+
+  if (lb.length === 0) {
+    emptyEl.style.display = 'block';
+    document.getElementById('lbTable').querySelector('thead').style.display = 'none';
+  } else {
+    emptyEl.style.display = 'none';
+    document.getElementById('lbTable').querySelector('thead').style.display = '';
+    lb.forEach((entry, i) => {
+      const tr = document.createElement('tr');
+      if (entry.name.toLowerCase() === playerName.toLowerCase()) tr.classList.add('lb-me');
+      const scoreClass = entry.score === 1 ? 'score-1' : entry.score === 2 ? 'score-2' : entry.score === 'X' ? 'score-x' : '';
+      const medal = i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '';
+      tr.innerHTML = `
+        <td class="rank">${i + 1}</td>
+        <td class="name-col">${medal}${escHtml(entry.name)}</td>
+        <td class="score-col ${scoreClass}">${entry.score}/6</td>
+        <td class="grid-col">${escHtml(entry.grid)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('endModal').classList.remove('show');
+  showScreen('lbScreen');
+}
+
+// Share
+function buildShareUrl(puzzleNum) {
+  const lb = leaderboards[puzzleNum] || [];
+  if (lb.length === 0) return null;
+  const payload = { p: puzzleNum, e: lb };
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  return window.location.origin + window.location.pathname + '#lb=' + encoded;
+}
+
+function shareLb() {
+  const url = buildShareUrl(lbViewPuzzle);
+  if (!url) { showToast('No scores to share'); return; }
+  if (navigator.share) {
+    navigator.share({ title: `Gunners Wordle — Puzzle #${lbViewPuzzle}`, text: `Challenge me on Gunners Wordle Puzzle #${lbViewPuzzle}! COYG!`, url }).catch(() => {});
+  } else {
+    copyToClipboard(url);
+    showToast('Share link copied!');
+  }
+}
+
+function copyLbLink() {
+  const url = buildShareUrl(lbViewPuzzle);
+  if (!url) { showToast('No scores to share'); return; }
+  copyToClipboard(url);
+  showToast('Link copied!');
+}
+
+function copyResult() {
+  if (!currentPuzzle) return;
+  const score = savedPuzzles[currentPuzzle.num]?.score || 'X';
+  const text = `Gunners Wordle 🔴⚪ #${currentPuzzle.num}\n${currentPuzzle.answer.length} letters — ${score}/${MAX_GUESSES}\n\n${resultEmoji.join('\n')}\n\nCOYG!`;
+  copyToClipboard(text);
+  showToast('Copied! Share with your mates!');
+}
+
+// Import
+function checkUrlImport() {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#lb=')) return;
+  try {
+    const json = decodeURIComponent(escape(atob(hash.substring(4))));
+    const data = JSON.parse(json);
+    if (data.p && data.e && Array.isArray(data.e)) {
+      pendingImport = data;
+      const banner = document.getElementById('importBanner');
+      banner.querySelector('p').innerHTML =
+        `A fellow Gooner sent <strong>${data.e.length}</strong> score(s) for <strong>Puzzle #${data.p}</strong>!`;
+      banner.classList.add('show');
+    }
+  } catch(e) { console.warn('Invalid share URL'); }
+  history.replaceState(null, '', window.location.pathname);
+}
+
+function acceptImport() {
+  if (!pendingImport) return;
+  const { p, e } = pendingImport;
+  e.forEach(entry => { addToLeaderboard(p, entry.name, entry.score, entry.grid); });
+  saveState();
+  document.getElementById('importBanner').classList.remove('show');
+  pendingImport = null;
+  showToast(`${e.length} score(s) added! COYG!`);
+  renderHome();
+}
+
+function dismissImport() {
+  document.getElementById('importBanner').classList.remove('show');
+  pendingImport = null;
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function showToast(msg) {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.classList.add('toast');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+function shakeRow(row) {
+  const el = document.querySelector(`.row[data-row="${row}"]`);
+  if (!el) return;
+  el.style.animation = 'none';
+  requestAnimationFrame(() => { el.style.animation = 'shake 0.3s ease'; });
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => fallbackCopy(text)); }
+  else { fallbackCopy(text); }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+loadState();
+checkUrlImport();
+renderHome();
+
+// Show how-to on first visit
+if (!localStorage.getItem('arsenalWordle_visited')) {
+  localStorage.setItem('arsenalWordle_visited', '1');
+  setTimeout(showHowTo, 600);
+}
+</script>
+</body>
+</html>

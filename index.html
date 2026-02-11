@@ -1199,10 +1199,12 @@ const MAX_GUESSES = 6;
 // ═══════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════
+const PUZZLE_VERSION = 2; // bump this when puzzle list changes to reset progress
 const STORAGE = {
   name: 'arsenalWordle_name',
   puzzles: 'arsenalWordle_puzzles',
   leaderboard: 'arsenalWordle_lb',
+  version: 'arsenalWordle_version',
 };
 
 let playerName = '';
@@ -1220,7 +1222,19 @@ let lbViewPuzzle = null;
 let lbUnsubscribe = null; // Firestore real-time listener cleanup
 
 function loadState() {
+  const storedVersion = parseInt(localStorage.getItem(STORAGE.version) || '0');
   playerName = localStorage.getItem(STORAGE.name) || '';
+
+  if (storedVersion < PUZZLE_VERSION) {
+    // Puzzle list changed — clear old progress, keep player name
+    savedPuzzles = {};
+    leaderboards = {};
+    localStorage.removeItem(STORAGE.puzzles);
+    localStorage.removeItem(STORAGE.leaderboard);
+    localStorage.setItem(STORAGE.version, PUZZLE_VERSION);
+    return;
+  }
+
   try { savedPuzzles = JSON.parse(localStorage.getItem(STORAGE.puzzles)) || {}; } catch(e) { savedPuzzles = {}; }
   try { leaderboards = JSON.parse(localStorage.getItem(STORAGE.leaderboard)) || {}; } catch(e) { leaderboards = {}; }
 }
